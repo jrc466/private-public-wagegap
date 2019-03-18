@@ -1,0 +1,13 @@
+*.Rout
+*~
+*.Rhistory
+*.qsub.e*
+*.qsub.o*
+/sample
+*#
+*.Rmd
+*.log
+*.md
+*.RData
+*fe_onepc.csv
+*fe_debug.csv
