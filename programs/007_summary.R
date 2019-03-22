@@ -45,7 +45,7 @@ table001 = tableby(shifter~age1+tenure+sex1+nonwhite1+skill,data=data[tenure>=0]
 
 setwd(graphs.dir)
 capture.output(summary(table001, labelTranslations = labels,text = T),file="007_summary_switchers.Rmd")
-render("test.Rmd", pdf_document(keep_tex=T))
+render("007_sumamry_switchers.Rmd", pdf_document(keep_tex=T))
 
 #####
 # 2. Obtaining Summary Statistics of the whole data
@@ -53,9 +53,5 @@ render("test.Rmd", pdf_document(keep_tex=T))
 
 table002 = tableby(group1~hwage1+age1+tenure+sex1+nonwhite1+skill,data=data[tenure>=0],test=F,numeric.stats = c("meansd", "medianq1q3", "range", "Nmiss"))
 capture.output(summary(table002, labelTranslations = labels,text = T),file="007_summary_all.Rmd")
-render("test.Rmd", pdf_document(keep_tex=T))
-
-#####
-# 3. Obtaining Summary of Mincer equations
-#####
+render("007_summary_all.Rmd", pdf_document(keep_tex=T))
 
