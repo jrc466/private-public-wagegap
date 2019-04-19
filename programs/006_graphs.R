@@ -177,16 +177,39 @@ obj_000[,nonwhite1:=factor(nonwhite1,c(0,1),c("White","Nonwhite"))]
 obj_000[,group1:=factor(group1,c(0,1),c("Public","Private"))]
 obj_000[,region:=factor(region,c(1,2,3,4,5),c("North","Northeast","Southeast","South","Midwest"))]
 obj_000[,sex1:=factor(sex1,c(0,1),c("Male","Female"))]
-p = ggplot(obj_000,aes(x=skill,y=effect))+geom_boxplot()
-q = ggplot(obj_000,aes(x=nonwhite1,y=effect))+geom_boxplot()
-r = ggplot(obj_000,aes(x=region,y=effect))+geom_boxplot()
-s = ggplot(obj_000,aes(x=region,y=effect))+geom_boxplot()
+box001 = ggplot(obj_000,aes(x=skill,y=effect))+geom_boxplot()
+ggsave(paste("001_fe_skill",suffix,".pdf",sep=""),path=graphs.dir,dpi=600,width=210,units="mm")
+box002 = ggplot(obj_000,aes(x=nonwhite1,y=effect))+geom_boxplot()
+ggsave(paste("001_fe_race",suffix,".pdf",sep=""),path=graphs.dir,dpi=600,width=210,units="mm")
+box003 = ggplot(obj_000,aes(x=region,y=effect))+geom_boxplot()
+ggsave(paste("001_fe_region",suffix,".pdf",sep=""),path=graphs.dir,dpi=600,width=210,units="mm")
+box004 = ggplot(obj_000,aes(x=sex1,y=effect))+geom_boxplot()
+ggsave(paste("001_fe_sex",suffix,".pdf",sep=""),path=graphs.dir,dpi=600,width=210,units="mm")
 
+t = unique(obj_001[,ind_mean_wage:=log(mean(hwage1)),.(pis)][,.(effect,ind_mean_wage)])
+graph_006 = ggplot(unique(obj_001[,.(effect,ind_mean_wage)]),aes(x=effect,y=ind_mean_wage))+geom_point(shape='.',col="white")+geom_hex()#stat_density_2d(aes(fill = ..density..), geom = 'raster', contour = FALSE)#+scale_fill_viridis_c()
+ggsave(paste("001_fe_wage",suffix,".pdf",sep=""),path=graphs.dir,dpi=600,width=210,units="mm")
 
+##############
+# 4. Getting the SEs for estimations
+##############
+setwd(analysis.dir)
 
+# 4.1 Yearly OB table 
+obj_002 = fread(paste("001_ob_yearly",suffix,".csv",sep=""))
+obj_002[,coef.CI.99:=paste("[",coef-qnorm(0.995)*se.coef,",",coef+qnorm(0.995)*se.coef,"]",sep="")]
+obj_002[,comp.CI.99:=paste("[",comp-qnorm(0.995)*se.comp,",",comp+qnorm(0.995)*se.comp,"]",sep="")]
+setcolorder(obj_002,c("year","total","comp","se.comp","comp.CI.99","coef","se.coef","coef.CI.99"))
+setnames(obj_002,c("Year","Total","Characteristics","Char.SE","Char.CI.99","Structural","Str.SE","Str.CI.99"))
+fwrite(obj_002,paste(graphs.dir,"/001_yearly_ob_se",suffix,".csv",sep=""))
 
+obj_003 = fread(paste("001_net_ob_yearly",suffix,".csv",sep=""))
+obj_003[,coef.CI.99:=paste("[",coef-qnorm(0.995)*se.coef,",",coef+qnorm(0.995)*se.coef,"]",sep="")]
+obj_003[,comp.CI.99:=paste("[",comp-qnorm(0.995)*se.comp,",",comp+qnorm(0.995)*se.comp,"]",sep="")]
+setcolorder(obj_003,c("year","total","comp","se.comp","comp.CI.99","coef","se.coef","coef.CI.99"))
+setnames(obj_003,c("Year","Total","Characteristics","Char.SE","Char.CI.99","Structural","Str.SE","Str.CI.99"))
+fwrite(obj_003,paste(graphs.dir,"/001_net_yearly_ob_se",suffix,".csv",sep=""))
 
-
-
-
-
+# 4.2 QOB on Whole sample
+load(paste("002_qob_debug_se.RData"),verbose=T)
+obj_006 = data.table(Quantiles =qob00$quantiles,Total =qob00$total_effect, Characteristics =qob00$composition_effect, )
