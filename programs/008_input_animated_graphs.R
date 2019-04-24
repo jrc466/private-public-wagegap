@@ -26,14 +26,21 @@ for(i in list.qob){
 }
 
 # Now, dealing with debug files with SEs estimation
-list.debug.se = list.files(pattern="se")
+list.debug.se = list.files(pattern="se.RData")
+list.debug.se = list.debug.se[grep("skill",list.debug.se)]
 for(i in list.debug.se){
   cat(i,"\n \n")
   load(i)
-  q = list(qob00_net$resTE,qob00_net$resCE,qob00_net$resSE)
-  setDT(q)
+  t = cbind(q$resTE,q$resCE,q$resSE)
   file.name = gsub(".RData",".csv",i)
-  fwrite(q,file.name,row.names=F)
+  fwrite(as.data.table(t),file.name,row.names=F)
 }
 
-
+others.se = list.files(pattern="se.RData")[!(list.files(pattern="se.RData") %in% list.debug.se)]
+for(i in others.se){
+  cat(i,"\n \n")
+  load(i)
+  t = cbind(q$resTE,q$resCE,q$resSE)
+  file.name = gsub(".RData",".csv",i)
+  fwrite(as.data.table(t),file.name,row.names=F)
+}
