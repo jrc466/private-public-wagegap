@@ -68,7 +68,6 @@ obj_003 = melt(obj_003,id.vars = c("year","se.comp","se.coef"),measure.vars = c(
 obj_003[variable=="Characteristics",sd:=se.comp]
 obj_003[variable=="Structural",sd:=se.coef]
 graph_003 = ggplot(data=obj_003,aes(x=year,y=value,fill=variable))+ylab("")+geom_hline(yintercept=0,linetype="dashed")+ylim(-0.1,0.6)+scale_fill_brewer(palette="Paired")+geom_bar(stat="identity",color="black",position=position_dodge())+annotate("text", x = "2005", y = 0.55, label = "Corrected for Worker Effects")#+geom_errorbar(width=.4,position=position_dodge(0.9),aes(ymin=value-1.96*sd,ymax=value+1.96*sd))#+ylim(-0.1,0.65)+geom_bar(stat="identity")+geom_hline(yintercept=0,linetype="dashed")+scale_fill_brewer(palette="Paired")+theme_minimal()+theme(legend.title = element_blank())+ggtitle("Yearly O-B")+xlab("") + ylab("Log of hourly wage")
-#graph_002 = ggplot(data=obj_003,aes(x=year,y=value,fill=variable))+ylim(-0.1,0.65)+geom_bar(stat="identity")+geom_hline(yintercept=0,linetype="dashed")+scale_fill_brewer(palette="Paired")+theme_minimal()+theme(legend.title = element_blank())+ggtitle("Yearly O-B net of worker FE's")+xlab("") + ylab("Log of hourly wage")
 
 figure_001 = ggarrange(graph_002,graph_003,ncol=1,nrow=2,common.legend=T,legend="bottom")#+theme(legend.title=element_blank())
 annotate_figure(figure_001,left=text_grob("log(wage/hour)",rot=90))
@@ -111,79 +110,140 @@ annotate_figure(figure_002,left=text_grob("log(wage/hour)",rot=90))
 ggsave(paste("003_qob",suffix,".pdf",sep=""),path=graphs.dir,dpi=600,width=210,units="mm")
 
 # 3.2 QOB by Gender and Skill
-qob.gs = data.table(quantiles=numeric(),female=character(),skill=character(),variable=factor(),value=numeric())
+qob.gs = data.table(Quantiles=numeric(),Sex=character(),Education=character(),Component=factor(),Value=numeric(),'Std Error' = numeric(), 'Value lower bound'=numeric(), 'Value upper bound'=numeric())
 for (i in 0:1){
   for (j in 1:3){
+    cat(i,j,"\n \n")
+    
     load(paste("002_qob_genderskill_",i,j,suffix,".RData",sep=""),verbose=T)
-    obj = data.table(quantiles = q$quantiles, Total = q$total_effect, Structural = q$structral_effect, Characteristics = q$composition_effect)
-    if(i==0){obj[,female:="Male"]}else{obj[,female:="Female"]} 
-    obj[,skill:=j] 
-    obj = melt(obj,id.vars = c("quantiles","female","skill"))
-    qob.gs = rbind(qob.gs,obj) 
+    Sample = q$marginal_counterfactual+q$total_effect
+    obj0 = data.table(Quantiles = q$quantiles, Sample = Sample,Counterfactual = q$marginal_counterfactual,Total = q$total_effect, Structural = q$structral_effect, Characteristics = q$composition_effect)
+    if(i==0){obj0[,Sex:="Male"]}else{obj0[,Sex:="Female"]} 
+    obj0[,Education:=j] 
+    obj0 = melt(obj0,id.vars = c("Quantiles","Sex","Education"))
+    
+    load(paste("002_qob_genderskill_",i,j,"_debug_se.RData",sep=""),verbose=T)
+    obj1 = data.table(Quantiles = q$quantiles, Counterfactual = q$model_quantile_counter[[2]],Total = q$resTE[10:18], Structural = q$resSE[10:18], Characteristics = q$resCE[10:18])
+    if(i==0){obj1[,Sex:="Male"]}else{obj1[,Sex:="Female"]} 
+    obj1[,Education:=j]
+    obj1 = melt(obj1,id.vars = c("Quantiles","Sex","Education"))
+    
+    obj = merge(obj0,obj1,by=c("Quantiles","Sex","Education","variable"),all=T)
+    obj[,lb := value.x-qnorm(0.995)*value.y]
+    obj[,ub := value.x+qnorm(0.995)*value.y]
+    names(obj) = names(qob.gs)
+    
+    qob.gs = rbind(qob.gs,obj)
   }
 }
-qob.gs[,female:=as.factor(female)]
-qob.gs[,skill:=factor(skill,levels=c(1,2,3),labels=c("Low Education","Medium Education","High Education"))]
 
-fig_003 = ggplot(qob.gs,aes(x=quantiles,y=value,group=variable))+theme(strip.text.x = element_text(size=14,face="bold"),strip.text.y=element_text(size=14,face="bold"))+geom_line(aes(linetype=variable),size=1.2)+scale_x_continuous(breaks=q$quantiles)+theme(axis.title.x=element_blank(),axis.title.y=element_blank(),legend.title=element_blank(),legend.position="bottom")+scale_linetype_manual(values=c("solid","dotted","twodash"))+geom_hline(aes(yintercept=0))+facet_grid(female~skill)
+qob.gs[,Education:=factor(Education,levels=c(1,2,3),labels=c("Low Education","Medium Education","High Education"))]
+qob.gs.graph = qob.gs[Component=="Total"|Component=="Structural"|Component=="Characteristics"]
+fig_003 = ggplot(qob.gs.graph,aes(x=Quantiles,y=Value,group=Component))+theme(strip.text.x = element_text(size=14,face="bold"),strip.text.y=element_text(size=14,face="bold"))+geom_line(aes(linetype=Component),size=1.2)+scale_x_continuous(breaks=q$quantiles)+theme(axis.title.x=element_blank(),axis.title.y=element_blank(),legend.title=element_blank(),legend.position="bottom")+scale_linetype_manual(values=c("solid","dotted","twodash"))+geom_hline(aes(yintercept=0))+facet_grid(Sex~Education)+geom_ribbon(aes(ymin=as.vector(unlist(c(qob.gs.graph[Sex=="Female",7],qob.gs.graph[Sex=="Male",7]))),ymax=as.vector(unlist(c(qob.gs.graph[Sex=="Female",8],qob.gs.graph[Sex=="Male",8])))),alpha=0.3)
 ggsave(paste("002_qob_gs",suffix,".pdf",sep=""),path=graphs.dir,dpi=600,width=210,units="mm")
+fwrite(qob.gs,paste(graphs.dir,"/002_qob_genderskill_se.csv",sep=""),row.names = F)
 
 # Net of FE's
-qob.net.gs = data.table(quantiles=numeric(),female=character(),skill=character(),variable=factor(),value=numeric())
+net.qob.gs = data.table(Quantiles=numeric(),Sex=character(),Education=character(),Component=factor(),Value=numeric(),'Std Error' = numeric(), 'Value lower bound'=numeric(), 'Value upper bound'=numeric())
 for (i in 0:1){
   for (j in 1:3){
+    cat(i,j,"\n \n")
+    
     load(paste("002_net_qob_genderskill_",i,j,suffix,".RData",sep=""),verbose=T)
-    obj = data.table(quantiles = q$quantiles, Total = q$total_effect, Structural = q$structral_effect, Characteristics = q$composition_effect)
-    if(i==0){obj[,female:="Male"]}else{obj[,female:="Female"]} 
-    obj[,skill:=j]
-    #if(j==1){obj[,skill:="Low Skill"]}else{if(j==2){obj[,skill:="Medium Skill"]}else{obj[,skill:="High Skill"]}} 
-    obj = melt(obj,id.vars = c("quantiles","female","skill"))
-    qob.net.gs = rbind(qob.net.gs,obj) 
+    Sample = q$marginal_counterfactual+q$total_effect
+    obj0 = data.table(Quantiles = q$quantiles, Sample = Sample,Counterfactual = q$marginal_counterfactual,Total = q$total_effect, Structural = q$structral_effect, Characteristics = q$composition_effect)
+    if(i==0){obj0[,Sex:="Male"]}else{obj0[,Sex:="Female"]} 
+    obj0[,Education:=j] 
+    obj0 = melt(obj0,id.vars = c("Quantiles","Sex","Education"))
+    
+    load(paste("002_net_qob_genderskill_",i,j,"_debug_se.RData",sep=""),verbose=T)
+    obj1 = data.table(Quantiles = q$quantiles, Counterfactual = q$model_quantile_counter[[2]],Total = q$resTE[10:18], Structural = q$resSE[10:18], Characteristics = q$resCE[10:18])
+    if(i==0){obj1[,Sex:="Male"]}else{obj1[,Sex:="Female"]} 
+    obj1[,Education:=j]
+    obj1 = melt(obj1,id.vars = c("Quantiles","Sex","Education"))
+    
+    obj = merge(obj0,obj1,by=c("Quantiles","Sex","Education","variable"),all=T)
+    obj[,lb := value.x-qnorm(0.995)*value.y]
+    obj[,ub := value.x+qnorm(0.995)*value.y]
+    names(obj) = names(net.qob.gs)
+    
+    net.qob.gs = rbind(net.qob.gs,obj)
   }
 }
-qob.net.gs[,female:=as.factor(female)]
-qob.net.gs[,skill:=factor(skill,levels=c(1,2,3),labels=c("Low Education","Medium Education","High Education"))]
 
-fig_004 = ggplot(qob.net.gs,aes(x=quantiles,y=value,group=variable))+theme(strip.text.x = element_text(size=14,face="bold"),strip.text.y=element_text(size=14,face="bold"))+geom_line(aes(linetype=variable),size=1.2)+scale_x_continuous(breaks=q$quantiles)+theme(axis.title.x=element_blank(),axis.title.y=element_blank(),legend.title=element_blank(),legend.position="bottom")+scale_linetype_manual(values=c("solid","dotted","twodash"))+geom_hline(aes(yintercept=0))+facet_grid(female~skill)
-ggsave(paste("002_net_qob_gs",suffix,".pdf",sep=""),path=graphs.dir,dpi=600,width=210,units="mm")
+net.qob.gs[,Education:=factor(Education,levels=c(1,2,3),labels=c("Low Education","Medium Education","High Education"))]
+net.qob.gs.graph = net.qob.gs[Component=="Total"|Component=="Structural"|Component=="Characteristics"]
+fig_004 = ggplot(net.qob.gs.graph,aes(x=Quantiles,y=Value,group=Component))+theme(strip.text.x = element_text(size=14,face="bold"),strip.text.y=element_text(size=14,face="bold"))+geom_line(aes(linetype=Component),size=1.2)+scale_x_continuous(breaks=q$quantiles)+theme(axis.title.x=element_blank(),axis.title.y=element_blank(),legend.title=element_blank(),legend.position="bottom")+scale_linetype_manual(values=c("solid","dotted","twodash"))+geom_hline(aes(yintercept=0))+facet_grid(Sex~Education)+geom_ribbon(aes(ymin=as.vector(unlist(c(net.qob.gs.graph[Sex=="Female",7],net.qob.gs.graph[Sex=="Male",7]))),ymax=as.vector(unlist(c(net.qob.gs.graph[Sex=="Female",8],net.qob.gs.graph[Sex=="Male",8])))),alpha=0.3)
+ggsave(paste("003_net_qob_gs",suffix,".pdf",sep=""),path=graphs.dir,dpi=600,width=210,units="mm")
+fwrite(net.qob.gs,paste(graphs.dir,"/002_net_qob_genderskill_se.csv",sep=""),row.names = F)
 
-# 3.3 QOB by Race and Skill
-qob.rs = data.table(quantiles=numeric(),nonwhite=character(),skill=character(),variable=factor(),value=numeric())
+# # 3.3 QOB by Race and Skill
+qob.rs = data.table(Quantiles=numeric(),Race=character(),Education=character(),Component=factor(),Value=numeric(),'Std Error' = numeric(), 'Value lower bound'=numeric(), 'Value upper bound'=numeric())
 for (i in 0:1){
   for (j in 1:3){
+    cat(i,j,"\n \n")
+    
     load(paste("003_qob_raceskill_",i,j,suffix,".RData",sep=""),verbose=T)
-    obj = data.table(quantiles = q$quantiles, Total = q$total_effect, Structural = q$structral_effect, Characteristics = q$composition_effect)
-    if(i==0){obj[,nonwhite:="White"]}else{obj[,nonwhite:="Nonwhite"]} 
-    obj[,skill:=j]
-    #if(j==1){obj[,skill:="Low Skill"]}else{if(j==2){obj[,skill:="Medium Skill"]}else{obj[,skill:="High Skill"]}} 
-    obj = melt(obj,id.vars = c("quantiles","nonwhite","skill"))
-    qob.rs = rbind(qob.rs,obj) 
+    Sample = q$marginal_counterfactual+q$total_effect
+    obj0 = data.table(Quantiles = q$quantiles, Sample = Sample,Counterfactual = q$marginal_counterfactual,Total = q$total_effect, Structural = q$structral_effect, Characteristics = q$composition_effect)
+    if(i==0){obj0[,Race:="White"]}else{obj0[,Race:="Nonwhite"]} 
+    obj0[,Education:=j] 
+    obj0 = melt(obj0,id.vars = c("Quantiles","Race","Education"))
+    
+    load(paste("003_qob_raceskill_",i,j,"_debug_se.RData",sep=""),verbose=T)
+    obj1 = data.table(Quantiles = q$quantiles, Counterfactual = q$model_quantile_counter[[2]],Total = q$resTE[10:18], Structural = q$resSE[10:18], Characteristics = q$resCE[10:18])
+    if(i==0){obj1[,Race:="White"]}else{obj1[,Race:="Nonwhite"]} 
+    obj1[,Education:=j]
+    obj1 = melt(obj1,id.vars = c("Quantiles","Race","Education"))
+    
+    obj = merge(obj0,obj1,by=c("Quantiles","Race","Education","variable"),all=T)
+    obj[,lb := value.x-qnorm(0.995)*value.y]
+    obj[,ub := value.x+qnorm(0.995)*value.y]
+    names(obj) = names(qob.rs)
+    
+    qob.rs = rbind(qob.rs,obj)
   }
 }
-qob.rs[,nonwhite:=as.factor(nonwhite)]
-qob.rs[,skill:=factor(skill,levels=c(1,2,3),labels=c("Low Education","Medium Education","High Education"))]
 
-fig_005 = ggplot(qob.rs,aes(x=quantiles,y=value,group=variable))+theme(strip.text.x = element_text(size=14,face="bold"),strip.text.y=element_text(size=14,face="bold"))+geom_line(aes(linetype=variable),size=1.2)+scale_x_continuous(breaks=q$quantiles)+theme(axis.title.x=element_blank(),axis.title.y=element_blank(),legend.title=element_blank(),legend.position="bottom")+scale_linetype_manual(values=c("solid","dotted","twodash"))+geom_hline(aes(yintercept=0))+facet_grid(nonwhite~skill)
+qob.rs[,Education:=factor(Education,levels=c(1,2,3),labels=c("Low Education","Medium Education","High Education"))]
+qob.rs.graph = qob.rs[Component=="Total"|Component=="Structural"|Component=="Characteristics"]
+fig_005 = ggplot(qob.rs.graph,aes(x=Quantiles,y=Value,group=Component))+theme(strip.text.x = element_text(size=14,face="bold"),strip.text.y=element_text(size=14,face="bold"))+geom_line(aes(linetype=Component),size=1.2)+scale_x_continuous(breaks=q$quantiles)+theme(axis.title.x=element_blank(),axis.title.y=element_blank(),legend.title=element_blank(),legend.position="bottom")+scale_linetype_manual(values=c("solid","dotted","twodash"))+geom_hline(aes(yintercept=0))+facet_grid(Race~Education)+geom_ribbon(aes(ymin=as.vector(unlist(c(qob.rs.graph[Race=="Nonwhite",7],qob.rs.graph[Race=="White",7]))),ymax=as.vector(unlist(c(qob.rs.graph[Race=="Nonwhite",8],qob.rs.graph[Race=="White",8])))),alpha=0.3)
 ggsave(paste("003_qob_rs",suffix,".pdf",sep=""),path=graphs.dir,dpi=600,width=210,units="mm")
+fwrite(qob.rs,paste(graphs.dir,"/003_qob_raceskill_se.csv",sep=""),row.names = F)
 
 # Net of FE's
-qob.net.rs = data.table(quantiles=numeric(),nonwhite=character(),skill=character(),variable=factor(),value=numeric())
+net.qob.rs = data.table(Quantiles=numeric(),Race=character(),Education=character(),Component=factor(),Value=numeric(),'Std Error' = numeric(), 'Value lower bound'=numeric(), 'Value upper bound'=numeric())
 for (i in 0:1){
   for (j in 1:3){
+    cat(i,j,"\n \n")
+    
     load(paste("003_net_qob_raceskill_",i,j,suffix,".RData",sep=""),verbose=T)
-    obj = data.table(quantiles = q$quantiles, Total = q$total_effect, Structural = q$structral_effect, Characteristics = q$composition_effect)
-    if(i==0){obj[,nonwhite:="White"]}else{obj[,nonwhite:="Nonwhite"]} 
-    obj[,skill:=j]
-    #if(j==1){obj[,skill:="Low Skill"]}else{if(j==2){obj[,skill:="Medium Skill"]}else{obj[,skill:="High Skill"]}} 
-    obj = melt(obj,id.vars = c("quantiles","nonwhite","skill"))
-    qob.net.rs = rbind(qob.net.rs,obj) 
+    Sample = q$marginal_counterfactual+q$total_effect
+    obj0 = data.table(Quantiles = q$quantiles, Sample = Sample,Counterfactual = q$marginal_counterfactual,Total = q$total_effect, Structural = q$structral_effect, Characteristics = q$composition_effect)
+    if(i==0){obj0[,Race:="White"]}else{obj0[,Race:="Nonwhite"]} 
+    obj0[,Education:=j] 
+    obj0 = melt(obj0,id.vars = c("Quantiles","Race","Education"))
+    
+    load(paste("003_net_qob_raceskill_",i,j,"_debug_se.RData",sep=""),verbose=T)
+    obj1 = data.table(Quantiles = q$quantiles, Counterfactual = q$model_quantile_counter[[2]],Total = q$resTE[10:18], Structural = q$resSE[10:18], Characteristics = q$resCE[10:18])
+    if(i==0){obj1[,Race:="White"]}else{obj1[,Race:="Nonwhite"]} 
+    obj1[,Education:=j]
+    obj1 = melt(obj1,id.vars = c("Quantiles","Race","Education"))
+    
+    obj = merge(obj0,obj1,by=c("Quantiles","Race","Education","variable"),all=T)
+    obj[,lb := value.x-qnorm(0.995)*value.y]
+    obj[,ub := value.x+qnorm(0.995)*value.y]
+    names(obj) = names(net.qob.rs)
+    
+    net.qob.rs = rbind(net.qob.rs,obj)
   }
 }
-qob.net.rs[,nonwhite:=as.factor(nonwhite)]
-qob.net.rs[,skill:=factor(skill,levels=c(1,2,3),labels=c("Low Education","Medium Education","High Education"))]
 
-fig_006 = ggplot(qob.net.rs,aes(x=quantiles,y=value,group=variable))+theme(strip.text.x = element_text(size=14,face="bold"),strip.text.y=element_text(size=14,face="bold"))+geom_line(aes(linetype=variable),size=1.2)+scale_x_continuous(breaks=q$quantiles)+theme(axis.title.x=element_blank(),axis.title.y=element_blank(),legend.title=element_blank(),legend.position="bottom")+scale_linetype_manual(values=c("solid","dotted","twodash"))+geom_hline(aes(yintercept=0))+facet_grid(nonwhite~skill)
+net.qob.rs[,Education:=factor(Education,levels=c(1,2,3),labels=c("Low Education","Medium Education","High Education"))]
+net.qob.rs.graph = net.qob.rs[Component=="Total"|Component=="Structural"|Component=="Characteristics"]
+fig_006 = ggplot(net.qob.rs.graph,aes(x=Quantiles,y=Value,group=Component))+theme(strip.text.x = element_text(size=14,face="bold"),strip.text.y=element_text(size=14,face="bold"))+geom_line(aes(linetype=Component),size=1.2)+scale_x_continuous(breaks=q$quantiles)+theme(axis.title.x=element_blank(),axis.title.y=element_blank(),legend.title=element_blank(),legend.position="bottom")+scale_linetype_manual(values=c("solid","dotted","twodash"))+geom_hline(aes(yintercept=0))+facet_grid(Race~Education)+geom_ribbon(aes(ymin=as.vector(unlist(c(net.qob.rs.graph[Race=="Nonwhite",7],net.qob.rs.graph[Race=="White",7]))),ymax=as.vector(unlist(c(net.qob.rs.graph[Race=="Nonwhite",8],net.qob.rs.graph[Race=="White",8])))),alpha=0.3)
 ggsave(paste("003_net_qob_rs",suffix,".pdf",sep=""),path=graphs.dir,dpi=600,width=210,units="mm")
+fwrite(net.qob.rs,paste(graphs.dir,"/003_net_qob_raceskill_se.csv",sep=""),row.names = F)
 
 ##############
 # 3. FEs by characteristics
@@ -232,123 +292,3 @@ fwrite(obj_004,paste(graphs.dir,"/002_qob",suffix,"_se.csv",sep=""),row.names = 
 names(obj_005)=c("Quantiles","Component","Value","Std. Error","Value lower bound","Value upper bound")
 fwrite(obj_005,paste(graphs.dir,"/002_net_qob",suffix,"_se.csv",sep=""),row.names = F)
 
-# 4.3 QOB gender and skill
-qob.gs = data.table(Quantiles=numeric(),Sex=character(),Education=character(),Component=factor(),Value=numeric(),'Std Error' = numeric(), 'Value lower bound'=numeric(), 'Value upper bound'=numeric())
-for (i in 0:1){
-  for (j in 1:3){
-    cat(i,j,"\n \n")
-    
-    load(paste("002_qob_genderskill_",i,j,suffix,".RData",sep=""),verbose=T)
-    Sample = q$marginal_counterfactual+q$total_effect
-    obj0 = data.table(Quantiles = q$quantiles, Sample = Sample,Counterfactual = q$marginal_counterfactual,Total = q$total_effect, Structural = q$structral_effect, Characteristics = q$composition_effect)
-    if(i==0){obj0[,Sex:="Male"]}else{obj0[,Sex:="Female"]} 
-    obj0[,Education:=j] 
-    obj0 = melt(obj0,id.vars = c("Quantiles","Sex","Education"))
-    
-    load(paste("002_qob_genderskill_",i,j,"_debug_se.RData",sep=""),verbose=T)
-    obj1 = data.table(Quantiles = q$quantiles, Counterfactual = q$model_quantile_counter[[2]],Total = q$resTE[10:18], Structural = q$resSE[10:18], Characteristics = q$resCE[10:18])
-    if(i==0){obj1[,Sex:="Male"]}else{obj1[,Sex:="Female"]} 
-    obj1[,Education:=j]
-    obj1 = melt(obj1,id.vars = c("Quantiles","Sex","Education"))
-    
-    obj = merge(obj0,obj1,by=c("Quantiles","Sex","Education","variable"),all=T)
-    obj[,lb := value.x-qnorm(0.995)*value.y]
-    obj[,ub := value.x+qnorm(0.995)*value.y]
-    names(obj) = names(qob.gs)
-    
-    qob.gs = rbind(qob.gs,obj) 
-  }
-}
-qob.gs[,Education:=factor(Education,levels=c(1,2,3),labels=c("Low","Medium","High"))]
-fwrite(qob.gs,paste(graphs.dir,"/002_qob_genderskill_se.csv",sep=""),row.names = F)
-
-#Net of FEs
-net.qob.gs = data.table(Quantiles=numeric(),Sex=character(),Education=character(),Component=factor(),Value=numeric(),'Std Error' = numeric(), 'Value lower bound'=numeric(), 'Value upper bound'=numeric())
-for (i in 0:1){
-  for (j in 1:3){
-    cat(i,j,"\n \n")
-    
-    load(paste("002_net_qob_genderskill_",i,j,suffix,".RData",sep=""),verbose=T)
-    Sample = q$marginal_counterfactual+q$total_effect
-    obj0 = data.table(Quantiles = q$quantiles, Sample = Sample,Counterfactual = q$marginal_counterfactual,Total = q$total_effect, Structural = q$structral_effect, Characteristics = q$composition_effect)
-    if(i==0){obj0[,Sex:="Male"]}else{obj0[,Sex:="Female"]} 
-    obj0[,Education:=j] 
-    obj0 = melt(obj0,id.vars = c("Quantiles","Sex","Education"))
-    
-    load(paste("002_net_qob_genderskill_",i,j,"_debug_se.RData",sep=""),verbose=T)
-    obj1 = data.table(Quantiles = q$quantiles, Counterfactual = q$model_quantile_counter[[2]],Total = q$resTE[10:18], Structural = q$resSE[10:18], Characteristics = q$resCE[10:18])
-    if(i==0){obj1[,Sex:="Male"]}else{obj1[,Sex:="Female"]} 
-    obj1[,Education:=j]
-    obj1 = melt(obj1,id.vars = c("Quantiles","Sex","Education"))
-    
-    obj = merge(obj0,obj1,by=c("Quantiles","Sex","Education","variable"),all=T)
-    obj[,lb := value.x-qnorm(0.995)*value.y]
-    obj[,ub := value.x+qnorm(0.995)*value.y]
-    names(obj) = names(net.qob.gs)
-    
-    net.qob.gs = rbind(net.qob.gs,obj) 
-  }
-}
-net.qob.gs[,Education:=factor(Education,levels=c(1,2,3),labels=c("Low","Medium","High"))]
-fwrite(net.qob.gs,paste(graphs.dir,"/002_net_qob_genderskill_se.csv",sep=""),row.names = F)
-
-
-# 4.4 QOB Race and Skill
-qob.rs = data.table(Quantiles=numeric(),Race=character(),Education=character(),Component=factor(),Value=numeric(),'Std Error' = numeric(), 'Value lower bound'=numeric(), 'Value upper bound'=numeric())
-for (i in 0:1){
-  for (j in 1:3){
-    cat(i,j,"\n \n")
-    
-    load(paste("003_qob_raceskill_",i,j,suffix,".RData",sep=""),verbose=T)
-    Sample = q$marginal_counterfactual+q$total_effect
-    obj0 = data.table(Quantiles = q$quantiles, Sample = Sample,Counterfactual = q$marginal_counterfactual,Total = q$total_effect, Structural = q$structral_effect, Characteristics = q$composition_effect)
-    if(i==0){obj0[,Race:="White"]}else{obj0[,Race:="Nonwhite"]} 
-    obj0[,Education:=j] 
-    obj0 = melt(obj0,id.vars = c("Quantiles","Race","Education"))
-    
-    load(paste("003_qob_raceskill_",i,j,"_debug_se.RData",sep=""),verbose=T)
-    obj1 = data.table(Quantiles = q$quantiles, Counterfactual = q$model_quantile_counter[[2]],Total = q$resTE[10:18], Structural = q$resSE[10:18], Characteristics = q$resCE[10:18])
-    if(i==0){obj1[,Race:="White"]}else{obj1[,Race:="Nonwhite"]} 
-    obj1[,Education:=j]
-    obj1 = melt(obj1,id.vars = c("Quantiles","Race","Education"))
-    
-    obj = merge(obj0,obj1,by=c("Quantiles","Race","Education","variable"),all=T)
-    obj[,lb := value.x-qnorm(0.995)*value.y]
-    obj[,ub := value.x+qnorm(0.995)*value.y]
-    names(obj) = names(qob.rs)
-    
-    qob.rs = rbind(qob.rs,obj) 
-  }
-}
-qob.rs[,Education:=factor(Education,levels=c(1,2,3),labels=c("Low","Medium","High"))]
-fwrite(qob.rs,paste(graphs.dir,"/003_qob_raceskill_se.csv",sep=""),row.names = F)
-
-#Net of FEs
-net.qob.rs = data.table(Quantiles=numeric(),Race=character(),Education=character(),Component=factor(),Value=numeric(),'Std Error' = numeric(), 'Value lower bound'=numeric(), 'Value upper bound'=numeric())
-for (i in 0:1){
-  for (j in 1:3){
-    cat(i,j,"\n \n")
-    
-    load(paste("003_qob_raceskill_",i,j,suffix,".RData",sep=""),verbose=T)
-    Sample = q$marginal_counterfactual+q$total_effect
-    obj0 = data.table(Quantiles = q$quantiles, Sample = Sample,Counterfactual = q$marginal_counterfactual,Total = q$total_effect, Structural = q$structral_effect, Characteristics = q$composition_effect)
-    if(i==0){obj0[,Race:="White"]}else{obj0[,Race:="Nonwhite"]} 
-    obj0[,Education:=j] 
-    obj0 = melt(obj0,id.vars = c("Quantiles","Race","Education"))
-    
-    load(paste("003_qob_raceskill_",i,j,"_debug_se.RData",sep=""),verbose=T)
-    obj1 = data.table(Quantiles = q$quantiles, Counterfactual = q$model_quantile_counter[[2]],Total = q$resTE[10:18], Structural = q$resSE[10:18], Characteristics = q$resCE[10:18])
-    if(i==0){obj1[,Race:="White"]}else{obj1[,Race:="Nonwhite"]} 
-    obj1[,Education:=j]
-    obj1 = melt(obj1,id.vars = c("Quantiles","Race","Education"))
-    
-    obj = merge(obj0,obj1,by=c("Quantiles","Race","Education","variable"),all=T)
-    obj[,lb := value.x-qnorm(0.995)*value.y]
-    obj[,ub := value.x+qnorm(0.995)*value.y]
-    names(obj) = names(net.qob.rs)
-    
-    net.qob.rs = rbind(net.qob.rs,obj) 
-  }
-}
-net.qob.rs[,Education:=factor(Education,levels=c(1,2,3),labels=c("Low","Medium","High"))]
-fwrite(qob.rs,paste(graphs.dir,"/003_net_qob_raceskill_se.csv",sep=""),row.names = F)
