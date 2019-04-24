@@ -39,19 +39,24 @@ labels = list(hwage1 = "Hourly wage (2011 US$)",sex1="Gender",skill="Education",
 data[,lag_g1:=shift(group1,n=1,type="lag"),pis]
 data[,shifter:=ifelse(group1!=lag_g1,1,0)]
 data[!is.na(shifter),shifter_pc:=100*sum(shifter)/.N,.(yr)]
-data[,shifter:=factor(shifter,levels=c(0,1),labels=c("Non-shifter","Shifter"))]
+data[,switcher:=factor(shifter,levels=c(0,1),labels=c("Nonswitcher","Switcher"))]
 
-table001 = tableby(shifter~age1+tenure+sex1+nonwhite1+skill,data=data[tenure>=0],test=F,numeric.stats = c("meansd", "medianq1q3", "range", "Nmiss"))
+table001 = tableby(switcher~age1+tenure+sex1+nonwhite1+skill,data=data[tenure>=0],test=F,numeric.stats = c("meansd", "medianq1q3", "range", "Nmiss"))
+
+shifter.by.yr = data[,.N,.(shifter,yr)]
+shifter.by.yr=shifter.by.yr
 
 setwd(graphs.dir)
-capture.output(summary(table001, labelTranslations = labels,text = T),file="007_summary_switchers.Rmd")
-render("007_sumamry_switchers.Rmd", pdf_document(keep_tex=T))
+output.file = paste("007_summary_switchers",suffix,".Rmd",sep="")
+capture.output(summary(table001, labelTranslations = labels,text = T),file=output.file)
+render(output.file, pdf_document(keep_tex=T))
 
 #####
 # 2. Obtaining Summary Statistics of the whole data
 #####
 
 table002 = tableby(group1~hwage1+age1+tenure+sex1+nonwhite1+skill,data=data[tenure>=0],test=F,numeric.stats = c("meansd", "medianq1q3", "range", "Nmiss"))
-capture.output(summary(table002, labelTranslations = labels,text = T),file="007_summary_all.Rmd")
-render("007_summary_all.Rmd", pdf_document(keep_tex=T))
+output.file = paste("007_summary_all",suffix,".Rmd",sep="")
+capture.output(summary(table002, labelTranslations = labels,text = T),file=output.file)
+render(output.file, pdf_document(keep_tex=T))
 
