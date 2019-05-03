@@ -47,13 +47,11 @@ fe.pis.2 = as.data.table(getfe(pool2))
 fe.pis.2[,pis:=as.numeric(as.character(idx))]
 fe.pis.2 = fe.pis.2[fe=="pis",c("pis","effect")]
 
-stargazer(mincer_00,mincer_02,mincer_06,pool1,pool2,type="text",dep.var.labels = "Log Hourly Wage (2011 US$)",add.lines = list(c("Fixed Effects","Establishment Size,Year and Region","Year and Region","Year and Region","Year and Region"),
-                                                                                                                        c("Worker Effects","No","No","No","Yes")))
+setwd(graphs.dir)
+file.name = paste("001_fe_regressions",suffix,".tex",sep="")
+lines = list(c("Fixed Effects","Establishment Size,Year and Region","Year and Region","Year and Region","Year and Region"),c("Worker Effects","No","No","No","Yes"))
+writeLines(capture.output(stargazer(mincer_00,mincer_02,mincer_06,pool1,pool2,type="latex",dep.var.labels = "Log Hourly Wage (2011 US$)",add.lines = lines)), file.name)
 
-prov = list(mincer_00,mincer_02,mincer_06,pool1,pool2)
-setwd(analysis.dir)
-save(prov,file=paste("000_mincer",suffix,".RData",sep=""))
-rm(prov)
 rm(list=ls(pattern="mincer_"))
 
 #merging fe with data
