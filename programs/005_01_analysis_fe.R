@@ -49,7 +49,7 @@ fe.pis.2 = fe.pis.2[fe=="pis",c("pis","effect")]
 
 setwd(graphs.dir)
 file.name = paste("001_fe_regressions",suffix,".tex",sep="")
-lines = list(c("Fixed Effects","Establishment Size,Year and Region","Year and Region","Year and Region","Year and Region"),c("Worker Effects","No","No","No","Yes"))
+lines = list(c("Fixed Effects","Establishment Size,Year, Region","Year, Region","Year, Region","Year, Region","Year, Region"),c("Worker Effects","No","No","No","Yes","Yes"))
 writeLines(capture.output(stargazer(mincer_00,mincer_02,mincer_06,pool1,pool2,type="latex",dep.var.labels = "Log Hourly Wage (2011 US$)",add.lines = lines)), file.name)
 
 rm(list=ls(pattern="mincer_"))
