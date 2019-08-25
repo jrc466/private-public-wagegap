@@ -292,3 +292,14 @@ fwrite(obj_004,paste(graphs.dir,"/002_qob",suffix,"_se.csv",sep=""),row.names = 
 names(obj_005)=c("Quantiles","Component","Value","Std. Error","Value lower bound","Value upper bound")
 fwrite(obj_005,paste(graphs.dir,"/002_net_qob",suffix,"_se.csv",sep=""),row.names = F)
 
+#####
+# 5. Plotting median wage
+#####
+setwd(output.dir)
+data = fread("04_toanalysis.csv")
+median.wage = data[,median(hwage1),.(yr,group1)]
+median.wage[,group1:=factor(group1,levels=c(0,1),labels=c("Public","Private"))]
+median.wage[,yr:=as.character(yr)]
+median.wage[,Sector:=group1]
+graph_007 = ggplot(median.wage, aes(x=yr,y=V1,group=Sector))+theme(legend.position = "bottom")+xlab("")+geom_line(aes(linetype = Sector))+ylim(0,10)+geom_point()+labs(y = "Median Hourly Wage (2011 US$)")
+ggsave(paste("004_median_wage",suffix,".pdf",sep=""),path=graphs.dir,dpi=600,width=210,units="mm")
