@@ -45,8 +45,8 @@ sample[,mean_earn:= as.numeric(mean_earn)]
 sample[,hired_wage:= as.numeric(hired_wage)]
 sample[,hired_hours:= as.numeric(hired_hours)]
 sample[,ppp:= as.numeric(ppp)]
-sample[,hwage1:= mean_earn/ppp/hired_hours]
-sample[,hwage2:= hired_wage/ppp/hired_hours]
+sample[,hwage1:= mean_earn/ppp/hired_hours/4]
+sample[,hwage2:= hired_wage/ppp/hired_hours/4]
 
 # Generating variable for Oaxa-Blinder groups
 adm.public = as.character(c(1015,1023,1031,1040,1058,1066,1074,1082,1104,1112,1120,1139,1147,1155,1163,1171,1180,1198,1201,1210,1228,1236,1244,1252,1260,1279))
