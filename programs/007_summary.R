@@ -54,6 +54,9 @@ render(output.file, pdf_document(keep_tex=T))
 #####
 # 2. Obtaining Summary Statistics of the whole data
 #####
+# The next step should be removed once the hourly wage issue is resolved.
+data[,hwage1:=mean_earn/as.numeric(hired_hours)/as.numeric(ppp)/4]
+# OBS: remove this step once hourly wage issue is resolved.  
 
 table002 = tableby(group1~hwage1+age1+tenure+sex1+nonwhite1+skill,data=data[tenure>=0],test=F,numeric.stats = c("meansd", "medianq1q3", "range", "Nmiss"))
 output.file = paste("007_summary_all",suffix,".Rmd",sep="")
